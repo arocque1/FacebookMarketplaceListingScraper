@@ -43,9 +43,7 @@ populateExcel = True
 ###################################################
 
 def clickButton(driver, path):
-    # Clicks button with xpath input, path, using input driver
-    button = WebDriverWait(driver, 2).until(
-        EC.element_to_be_clickable((By.XPATH, path)))
+    button = WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.XPATH, path)))
 
     driver.execute_script("arguments[0].scrollIntoView();", button)
 
@@ -54,14 +52,25 @@ def clickButton(driver, path):
     driver.execute_script("arguments[0].click();", button)
 
 def sendText(driver, path, text):
-    # Types input text to xpath, path, using input river
     elem = driver.find_element(By.XPATH, path)
-    elem.clear()
-    elem.send_keys(text)
+    for c in text:
+        mistake = random.randint(0, 100)
+        elem.send_keys(c)
+        time.sleep(random.uniform(0.05,0.2))
+        if mistake < 10:
+            mistakeNum = random.randint(1, 3)
+            for i in range(mistakeNum):
+                elem.send_keys(chr(random.randint(97,122)))
+                time.sleep(random.uniform(0.05,0.1))
+            time.sleep(random.uniform(0.15,0.5))
+            for i in range(mistakeNum):
+                elem.send_keys(Keys.BACKSPACE)
+                time.sleep(random.uniform(0.01,0.1))
+
+
 
 
 class listing:
-    # Listing class that stores relevant data on listings
     def __init__(self, listingName = "N/A", price = -1, location = "N/A", miles = "N/A", coverpic = "N/A", link = "N/A"):
         self.listingName = listingName
         self.price = price
@@ -82,26 +91,27 @@ class listing:
     def toArray(self):
         return [str(self.listingName), str(self.price), str(self.location), str(self.miles), str(self.coverpic), str(self.link)]
 
+#with open("file.txt", 'r') as file:
+    #page = file.read()
 
 driver = webdriver.Firefox()
 firstRun = True
 combos = pd.read_excel("loginXpaths.xlsx", engine='openpyxl')
-
 for location in locations:
     url = "https://www.facebook.com/marketplace/" + (location.lower()).replace(" ","") + "/search?sortBy=creation_time_descend&query=" + searchName + "&exact=false"
     driver.get(url)
 
-    # Extract info from each listing
+    #Extract info from each listing
     letter = -1
     emailXpath = ""
     if firstRun == True:
-            # Enter email
+            #Enter email
         try:
             sendText(driver, "//*[@id='email']", email)
         except:
-            for i in range(len(combos["Combos"])):
+            for i in range(len(combos["LoginFields"])):
                 try:
-                    sendText(driver,combos.at[i,"Combos"],email)
+                    sendText(driver,combos.at[i,"LoginFields"],email)
                     emailEntered = True
                     emailXpath = i
                     break
@@ -109,13 +119,13 @@ for location in locations:
                     pass
 
         try:
-            # Enter password
+            #Enter password
             sendText(driver, "//*[@id='pass']", password)
         except:
-            for i in range(len(combos["Combos"])):
+            for i in range(len(combos["LoginFields"])):
                 if i != emailXpath:
                     try:
-                        sendText(driver,combos.at[i,"Combos"],password)
+                        sendText(driver,combos.at[i,"LoginFields"],password)
                         break
                     except:
                         pass
@@ -126,24 +136,26 @@ for location in locations:
                 break
             except:
                 pass
-        print("done")
 
-    # Click location
-    clickButton(driver,"/html/body/div[1]/div/div[1]/div/div[3]/div/div/div[1]/div[1]/div[1]/div/div[3]/div[1]/div[2]/div[3]/div[2]/div[1]/div[1]/div/span")
+    #Click location
+    for i in range(len(combos["RangeButton"])):
+        try:
+            clickButton(driver, combos.at[i,"RangeButton"])
+        except:
+            pass
 
-    # Click radius
+    #Click radius
     clickButton(driver,"/html/body/div[1]/div/div[1]/div/div[4]/div/div/div[1]/div/div[2]/div/div/div/div[3]/div/div[1]/div[3]/div/div/div/label/div[1]/div/div")
 
-    # Click 500 miles
+    #Click 500 miles
     clickButton(driver,"/html/body/div[1]/div/div[1]/div/div[4]/div/div/div[1]/div/div[3]/div/div/div[1]/div[1]/div/div/div/div/div[1]/div/div[11]/div[1]")
 
-    # Click Apply
+    #Click Apply
     clickButton(driver,"/html/body/div[1]/div/div[1]/div/div[4]/div/div/div[1]/div/div[2]/div/div/div/div[4]/div/div[2]/div/div/div/div/div/div/div[1]/div/span/span")
 
     page = driver.page_source
 
     tempListings = []
-    # Finds price of listings
     for i in range(1,numListings):
         indexStart = page.find(
             '"__isMarketplaceListingRenderable":"GroupCommerceProductItem"')
@@ -164,7 +176,6 @@ for location in locations:
         #tempListing.printInfo()
 
     listings = []
-    # Finds and appends listing classes with relevant data webscraped off facebook marketplace
     for i in range(1, numListings):
         titleXpath = "/html/body/div[1]/div/div[1]/div/div[3]/div/div/div[1]/div[1]/div[2]/div/div/div[3]/div/div[2]/div[" + str(i) + "]/div/div/span/div/div/div/div/a/div/div[2]/div[2]/span/div/span/span"
         priceXpath = "/html/body/div[1]/div/div[1]/div/div[3]/div/div/div[1]/div[1]/div[2]/div/div/div[3]/div/div[2]/div[" + str(i) + "]/div/div/span/div/div/div/div/a/div/div[2]/div[1]/span/div/span"
@@ -175,8 +186,14 @@ for location in locations:
 
         listingName = driver.find_element(By.XPATH, titleXpath)
         price = driver.find_element(By.XPATH, priceXpath)
-        location = driver.find_element(By.XPATH, locationXpath)
-        miles = driver.find_element(By.XPATH, milesXpath)
+        try:
+            location = driver.find_element(By.XPATH, locationXpath)
+        except:
+            continue
+        try:
+            miles = driver.find_element(By.XPATH, milesXpath)
+        except:
+            continue
         imgLink = driver.find_element(By.XPATH, imgXpath)
         link = driver.find_element(By.XPATH, linkXpath)
 
@@ -202,7 +219,6 @@ for location in locations:
         #tempListing.printInfo()
 
     finalListings = []
-    # Matches and combines listings with correct price data
     for seleniumListing in listings:
         for scrapeListing in tempListings:
             if scrapeListing.listingName == seleniumListing.listingName and scrapeListing.location == seleniumListing.location:
@@ -213,7 +229,7 @@ for location in locations:
                 break
 
 
-    # Initial save to excel if running with empty excel spreadsheet
+    #Initial save to excel
     if populateExcel == True:
         data = []
         for tempListing in finalListings:
@@ -235,9 +251,8 @@ for location in locations:
 
 
     df = pd.read_excel("cars.xlsx", engine='openpyxl')
+    i = 0
     columns = ['Listing Name', 'Price', 'Location', 'Miles', 'Coverpic', 'link']
-
-    # Saves listing data to excel sheet
     if firstRun == True:
         newListings = []
     for tempListing in finalListings:
@@ -260,12 +275,11 @@ for location in locations:
     df.to_excel("cars.xlsx", index=False, engine='openpyxl')
     firstRun = False
 
-# Sends email to user to notify that new listing is posted
 if populateExcel == False:
     smtp_server = 'smtp.gmail.com'
     smtp_port = 587
     message = MIMEMultipart()
-    message['From'] = senderEmail
+    message['From'] = email
     message['To'] = yourEmail
     message['Subject'] = 'New Listings!'
     message.attach(MIMEText("""
@@ -308,7 +322,6 @@ if populateExcel == False:
         print(f"Failed to send email: {e}")
     finally:
         server.quit()
-
 
     for imgName in imgNames:
         if os.path.exists(imgName):
