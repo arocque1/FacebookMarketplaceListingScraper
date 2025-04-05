@@ -20,26 +20,33 @@ import random
 ###################################################
 ################### User Input ####################
 
-searchName = "335d"
-keywords = ["335d", "335 d", "diesel"]
-locations = ["locations",]
+searchName = "search name"
+# Required keywords are keywords that MUST be in the listing title
+requiredKeywords = ["keywords"]
+
+# Optional keywords are used to select listings that may not have a
+# required keyword, but do have an optional keyword and DON'T have an exclusion keyword
+optionalKeywords = ["optional keywords"]
+
+# Exclusion keywords are keywords that listing titles must NOT have
+exclusionKeywords = ["exclusion keywords"]
+
+locations = ["locations"]
 
 # Facebook account email and password
-email = "fbemail"
-password = "fbPassword"
+email = "email"
+password = "pass"
 
+# Email that will send you emails notifying you of new listings.
 # Be sure that 2FA is enabled on the sender email so you
 # can get an app password. Paste that app password here
-senderEmail = "senderEmail"
-appPassword = "yourEmailAppPassword"
+senderEmail = "email"
+appPassword = "app pass"
 
 # Email you want notifications to get sent to
-yourEmail = "recieverEmail"
-numListings = 20
+yourEmail = "email"
+numListings = 10
 
-populateExcel = True
-
-###################################################
 ###################################################
 
 def clickButton(driver, path):
@@ -53,6 +60,7 @@ def clickButton(driver, path):
 
 def sendText(driver, path, text):
     elem = driver.find_element(By.XPATH, path)
+    # Simulates human typing
     for c in text:
         mistake = random.randint(0, 100)
         elem.send_keys(c)
@@ -91,8 +99,9 @@ class listing:
     def toArray(self):
         return [str(self.listingName), str(self.price), str(self.location), str(self.miles), str(self.coverpic), str(self.link)]
 
-#with open("file.txt", 'r') as file:
-    #page = file.read()
+    def __eq__(self, other):
+        return self.listingName == other.listingName and self.price == other.price and self.location == other.location and self.miles == other.miles and self.coverpic == other.coverpic and self.link == other.link
+
 
 driver = webdriver.Firefox()
 firstRun = True
@@ -143,6 +152,7 @@ for location in locations:
             clickButton(driver, combos.at[i,"RangeButton"])
         except:
             pass
+    #clickButton(driver,"/html/body/div[1]/div/div[1]/div/div[3]/div/div/div[1]/div[1]/div[1]/div/div[3]/div[1]/div[2]/div[3]/div[2]/div[1]/div[1]/div/span")
 
     #Click radius
     clickButton(driver,"/html/body/div[1]/div/div[1]/div/div[4]/div/div/div[1]/div/div[2]/div/div/div/div[3]/div/div[1]/div[3]/div/div/div/label/div[1]/div/div")
@@ -209,8 +219,13 @@ for location in locations:
         miles = miles[miles.find('">')+2:miles.find("</span>")]
         #print(miles)
 
+        wait = WebDriverWait(driver, 2)
+        imgLink = wait.until(EC.presence_of_element_located((By.XPATH, imgXpath)))
         img = imgLink.get_attribute("src")
+        #print(img)
 
+        wait = WebDriverWait(driver, 2)
+        link = wait.until(EC.presence_of_element_located((By.XPATH, linkXpath)))
         link = link.get_attribute("href")
         #print(link)
 
@@ -224,67 +239,71 @@ for location in locations:
             if scrapeListing.listingName == seleniumListing.listingName and scrapeListing.location == seleniumListing.location:
                 tempListing = listing(seleniumListing.listingName, scrapeListing.price, seleniumListing.location, seleniumListing.miles, seleniumListing.coverpic, seleniumListing.link)
 
-                if any(s in tempListing.listingName for s in keywords) or ("i" not in tempListing.listingName and "BMW" in tempListing.listingName):
+                if any(s in tempListing.listingName for s in requiredKeywords) or (not any(t in tempListing.listingName for t in exclusionKeywords) and any(u in tempListing.listingName for u in optionalKeywords)):
                     finalListings.append(tempListing)
                 break
 
-
-    #Initial save to excel
-    if populateExcel == True:
-        data = []
-        for tempListing in finalListings:
-            data.append([str(tempListing.listingName), str(tempListing.price), str(tempListing.location), str(tempListing.miles), str(tempListing.coverpic), str(tempListing.link)])
-
-        columns = ['Listing Name', 'Price', 'Location', 'Miles', 'Coverpic', 'link']
-
-        df = pd.DataFrame(columns=columns)
-
-        for row in data:
-            df.loc[len(df)] = row
-
-        excel_path = "cars.xlsx"
-        df.to_excel(excel_path, index=False, engine='openpyxl')
-
-        print(f"Data saved to " + excel_path + "!")
-        sys.exit()
-
-
-
-    df = pd.read_excel("cars.xlsx", engine='openpyxl')
+    dfXls = pd.read_excel("cars.xlsx", engine='openpyxl')
     i = 0
     columns = ['Listing Name', 'Price', 'Location', 'Miles', 'Coverpic', 'link']
+    #print("finalListing len: " + str(len(finalListings)))
     if firstRun == True:
         newListings = []
+        newDf = pd.DataFrame(columns=columns)
+        firstRun = False
     for tempListing in finalListings:
-        for i in range(1,numListings):
-            try:
-                if tempListing.listingName != df.at[i, 'Listing Name'] and tempListing.price != df.at[i, 'Price'] and tempListing.miles != df.at[i, 'Miles'] and populateExcel == False:
-                    newDf = pd.DataFrame(columns=columns)
+        append = False
+        for i in range(0,len(dfXls)-1):
+            if tempListing.listingName != dfXls.at[i, 'Listing Name'] and tempListing.price != dfXls.at[i, 'Price'] and tempListing.miles != dfXls.at[i, 'Miles']:
+                append = True
 
-                    row = tempListing.toArray()
-                    newDf.loc[len(newDf)] = row
+        if len(dfXls) == 0:
+            append = True
+        for temp in newListings:
+            if tempListing == temp:
+                append = False
 
-                    df = pd.concat([newDf, df], ignore_index=True)
+        if append:
+            df = pd.DataFrame(columns=columns)
+            row = tempListing.toArray()
+            #print(row)
+            df.loc[len(df)] = row
+            #print(newDf)
+            newDf = pd.concat([df, newDf], ignore_index=True)
+            newListings.append(tempListing)
 
-                    newListings.append(tempListing)
-            except:
-                if len(newListings) > 0:
-                    newListings.append(tempListing)
-    if len(df) > numListings:
-        df = df.drop(range(len(df)-numListings,len(df)))
-    df.to_excel("cars.xlsx", index=False, engine='openpyxl')
-    firstRun = False
+    #if len(newDf) > numListings:
+        #newDf = newDf.drop(range(len(newDf)-numListings,len(newDf)))
 
-if populateExcel == False:
-    smtp_server = 'smtp.gmail.com'
-    smtp_port = 587
-    message = MIMEMultipart()
-    message['From'] = email
-    message['To'] = yourEmail
-    message['Subject'] = 'New Listings!'
-    message.attach(MIMEText("""
-        <h1><span style="text-decoration: underline;"><strong>New Listings!!!</strong></span></h1>""", 'html'))
+newDf = pd.concat([dfXls, newDf], ignore_index=True)
+newDf.to_excel("cars.xlsx", index=False, engine='openpyxl')
 
+
+#print("newListings length: " + str(len(newListings)))
+
+smtp_server = 'smtp.gmail.com'
+smtp_port = 587
+message = MIMEMultipart()
+message['From'] = email
+message['To'] = yourEmail
+message['Subject'] = 'New Listings!'
+message.attach(MIMEText("""
+    <h1><span style="text-decoration: underline;"><strong>New Listings!!!</strong></span></h1>""", 'html'))
+
+"""
+if len(newListings) > 10:
+    numEmails = round(len(newListings) / 10) + 1
+    listingsIter = 10
+else:
+    numEmails = 1
+    listingsIter = len(newListings)
+
+idx = 0
+imgNames = []
+for x in range(numEmails):
+    print("Preparing email " + str(x) + "...")
+"""
+if len(newListings) > 0:
     imgNames = []
     for tempListing in newListings:
         response = requests.get(tempListing.coverpic)
@@ -292,10 +311,8 @@ if populateExcel == False:
             img = Image.open(BytesIO(response.content))
             imgPath = "pics/" + tempListing.listingName + ".jpg"
             imgNames.append(imgPath)
-            Image.open(imgPath)
+            #Image.open(imgPath)
             img.save(imgPath)
-        else:
-            print("Failed to retrieve the image.")
 
         with open(imgPath, 'rb') as imgFile:
             img = MIMEImage(imgFile.read())
@@ -304,9 +321,10 @@ if populateExcel == False:
 
         body = f"""
            <p><span style="text-decoration: underline;"><strong><img src="cid:""" + tempListing.listingName + """ alt="" /></strong></span></p>
-           <p>""" + tempListing.price + """</p>
+           <p>""" + str(tempListing.price) + """</p>
            <p>""" + tempListing.listingName + """</p>
            <p>""" + tempListing.location + """</p>
+           <p>""" + tempListing.miles + """</p>
            <p>""" + tempListing.link + """</p>
            <p>&nbsp;</p>
            <p>&nbsp;</p>"""
@@ -315,8 +333,8 @@ if populateExcel == False:
     try:
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
-        server.login(email, appPassword)
-        server.sendmail(email, yourEmail, message.as_string())
+        server.login(senderEmail, appPassword)
+        server.sendmail(senderEmail, yourEmail, message.as_string())
         print("Email sent successfully!")
     except Exception as e:
         print(f"Failed to send email: {e}")
@@ -327,3 +345,7 @@ if populateExcel == False:
         if os.path.exists(imgName):
             os.remove(imgName)
 
+else:
+    print("No new listings!")
+
+driver.close()
