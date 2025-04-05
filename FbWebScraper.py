@@ -290,26 +290,14 @@ message['Subject'] = 'New Listings!'
 message.attach(MIMEText("""
     <h1><span style="text-decoration: underline;"><strong>New Listings!!!</strong></span></h1>""", 'html'))
 
-"""
-if len(newListings) > 10:
-    numEmails = round(len(newListings) / 10) + 1
-    listingsIter = 10
-else:
-    numEmails = 1
-    listingsIter = len(newListings)
 
-idx = 0
-imgNames = []
-for x in range(numEmails):
-    print("Preparing email " + str(x) + "...")
-"""
 if len(newListings) > 0:
     imgNames = []
     for tempListing in newListings:
         response = requests.get(tempListing.coverpic)
         if response.status_code == 200:
             img = Image.open(BytesIO(response.content))
-            imgPath = "pics/" + tempListing.listingName + ".jpg"
+            imgPath = tempListing.listingName + ".jpg"
             imgNames.append(imgPath)
             #Image.open(imgPath)
             img.save(imgPath)
